@@ -1,0 +1,655 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  employeeCode  String?  @unique // Unique employee code (e.g., EMP-2024-001)
+  email         String   @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String?
+  isActive      Boolean  @default(true)
+  roleId        String
+  role          Role     @relation(fields: [roleId], references: [id])
+  teamLeaderId String?  // Team Leader this user reports to
+  teamLeader    User?    @relation("TeamMembers", fields: [teamLeaderId], references: [id])
+  teamMembers   User[]   @relation("TeamMembers") // Users under this team leader
+  teamName      String?  // Team name (only for Team Leaders, e.g., "Team 1", "Team 2")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Lead relations
+  assignedLeads Lead[]   @relation("LeadAssigned")
+  assignedLeadsBy Lead[] @relation("LeadAssigner") // Leads assigned by this user (Team Leader)
+  createdLeads  Lead[]   @relation("LeadCreator")
+  previousAssignedLeads Lead[] @relation("LeadPreviousAssigned") // Leads previously assigned to this user
+  sheetSyncs    GoogleSheetSync[] @relation("SheetSyncCreator")
+  calls         Call[]   @relation("CallCreator")
+  
+  // Client relations
+  assignedClients Client[] @relation("ClientAssigned")
+  createdClients Client[] @relation("ClientCreator")
+  
+  // Application relations
+  assignedApplications Application[] @relation("ApplicationAssigned")
+  createdApplications Application[] @relation("ApplicationCreator")
+  
+  // Document relations
+  uploadedDocuments ApplicationDocument[] @relation("DocumentUploader")
+  
+  // Visit relations
+  assignedVisits ClientVisit[] @relation("VisitAssigned")
+  createdVisits ClientVisit[] @relation("VisitCreator")
+  
+  // HR relations
+  attendanceRecords Attendance[]
+  leaveRequests LeaveRequest[]
+  leaveApprovedBy LeaveRequest[] @relation("LeaveApprover")
+  performanceReviews PerformanceReview[]
+  performanceReviewedBy PerformanceReview[] @relation("Reviewer")
+  
+  // Session relations
+  sessions UserSession[]
+  
+  // Document relations
+  createdDocuments Document[] @relation("DocumentCreator")
+  receivedDocuments Document[] @relation("DocumentRecipient")
+  
+  // Google OAuth relations
+  googleToken GoogleToken?
+  
+  // HRMS relations
+  staffDuties StaffDuties?
+  createdDuties StaffDuties[] @relation("DutiesCreator")
+  
+  // TagFlow relations
+  createdTagFlows TagFlow[] @relation("TagFlowCreator")
+  
+  // Activity relations
+  createdActivities LeadActivity[] @relation("ActivityCreator")
+
+  // Mobile relations
+  mobileDevice  MobileDevice?
+  callRequests  CallRequest[]
+
+  // Task relations
+  assignedTasks Task[] @relation("TaskAssigned")
+  createdTasks Task[] @relation("TaskCreator")
+  taskActivities TaskActivity[] @relation("TaskActivityCreator")
+
+  @@map("users")
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  description String?
+  level       Int          // Hierarchy level (1 = Admin, 2 = Branch Manager, etc.)
+  parentId    String?      // For hierarchy (e.g., Telecaller's parent is Team Leader)
+  parent      Role?        @relation("RoleHierarchy", fields: [parentId], references: [id])
+  children    Role[]       @relation("RoleHierarchy")
+  isActive    Boolean      @default(true)
+  roleShifts  RoleShift[]  // Many-to-many with shifts
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  module      String   // e.g., "users", "roles", "applications", etc.
+  action      String   // e.g., "create", "read", "update", "delete"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Lead {
+  id            String    @id @default(cuid())
+  leadId        Int?      @unique // Auto-generated serial ID for each lead (generated in application)
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String    @unique // Phone number is unique - each phone = one unique lead
+  country       String?   // Target country for immigration
+  visaType      String?   // Type of visa (e.g., "Student", "Work", "PR")
+  source        String?   // Lead source (e.g., "Website", "Referral", "Walk-in")
+  status        String    @default("new") // new, contacted, qualified, converted, lost
+  priority      String?   @default("medium") // low, medium, high, urgent
+  score         Int?      // Lead quality score (0-100)
+  notes         String?
+  
+  // Call status fields
+  callStatus          String?   // interested, not_interested, callback, discussion_pending, switch_off, busy, document_received
+  callbackScheduledAt DateTime? // When callback is scheduled
+  discussionType      String?   // Type of discussion pending
+  discussionNotes     String?   // Notes about discussion
+  documentsReceived   String?   // JSON array of received documents
+  
+  // Immigration-specific fields
+  budgetMin     Int?      // Minimum budget (in local currency)
+  budgetMax     Int?      // Maximum budget (in local currency)
+  qualification String?   // Educational qualification (e.g., "Bachelor's", "Master's", "Diploma")
+  address       String?   // Full address
+  passportNumber String?  // Passport number
+  passportIssueDate String? // Passport issue date
+  passportExpiryDate String? // Passport expiry date
+  passportType  String?  // Passport type (Ordinary, Diplomatic, Official, etc.)
+  occupation    String?  // Occupation type (salaried, business, student, etc.)
+  employerName  String?  // Employer name (for salaried)
+  salary        Int?     // Monthly salary (for salaried)
+  designation   String?  // Job designation (for salaried)
+  experience    Int?     // Years of experience (for salaried)
+  businessName  String?  // Business name (for business)
+  businessType  String?  // Business type (Sole Proprietorship, Partnership, etc.)
+  businessAddress String? // Business address (for business)
+  travelHistory String?   // Travel history (JSON string or text description)
+  refusalCount  Int?      @default(0) // Number of visa refusals
+  refusalCountry String?  // Country where visa was refused
+  refusalReasons String?  // Reasons for visa refusals (JSON string or text)
+  profilePhoto  String?   // Profile photo URL (passport size image)
+  
+  assignedToId String?   // Assigned to user (counselor/telecaller)
+  assignedTo    User?     @relation("LeadAssigned", fields: [assignedToId], references: [id])
+  assignedById  String?   // User who assigned this lead (Team Leader who distributed)
+  assignedBy    User?     @relation("LeadAssigner", fields: [assignedById], references: [id])
+  assignedAt    DateTime? // When the lead was assigned to telecaller
+  createdById   String?   // User who created the lead
+  createdBy     User?     @relation("LeadCreator", fields: [createdById], references: [id])
+  
+  // Collaboration fields
+  previousAssignedToId String? // Previous owner (for collaboration tracking)
+  previousAssignedTo   User?   @relation("LeadPreviousAssigned", fields: [previousAssignedToId], references: [id])
+  movedAt              DateTime? // When lead was moved to current owner
+  movedFromRole        String?   // Role of previous owner (e.g., "TELECALLER")
+  collaborationActive  Boolean   @default(false) // Is collaboration active
+  sheetSyncId   String?   // If imported from Google Sheet sync
+  sheetSync     GoogleSheetSync? @relation(fields: [sheetSyncId], references: [id])
+  calls         Call[]    // Calls made for this lead
+  activities    LeadActivity[] // Timeline activities for this lead
+  callRequests  CallRequest[]
+  tasks         Task[] // Tasks related to this lead
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+model GoogleSheetSync {
+  id            String    @id @default(cuid())
+  sheetUrl      String    @unique
+  sheetId       String    // Extracted sheet ID
+  name          String?   // Custom name for the sync
+  isActive      Boolean   @default(true)
+  lastSyncedAt  DateTime? // Last successful sync time
+  lastRowCount  Int       @default(0) // Last known row count
+  syncInterval  Int       @default(5) // Sync interval in minutes
+  createdById   String    // User who created the sync
+  createdBy     User      @relation("SheetSyncCreator", fields: [createdById], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  leads         Lead[]    // Leads imported from this sheet
+
+  @@map("google_sheet_syncs")
+}
+
+model Call {
+  id            String    @id @default(cuid())
+  leadId        String?   // Associated lead (optional)
+  lead          Lead?     @relation(fields: [leadId], references: [id])
+  phoneNumber   String    // Phone number called
+  callType      String    @default("outgoing") // outgoing, incoming
+  status        String    @default("completed") // completed, missed, no_answer, busy, callback, ringing, connected, ended
+  duration      Int?      // Call duration in seconds
+  notes         String?   // Call notes/remarks
+  callDate      DateTime  @default(now()) // When the call was made
+  createdById   String    // Telecaller who made the call
+  createdBy     User      @relation("CallCreator", fields: [createdById], references: [id])
+  
+  // Mobile integration fields
+  startTime     DateTime?
+  endTime       DateTime?
+  deviceId      String?
+  initiatedFrom String?   // "web" or "mobile"
+  webRequestId  String?
+  autoCreatedLead Boolean @default(false)
+  recordingPath String?   // Path to call recording file
+  
+  // Relations
+  callRequest   CallRequest?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([phoneNumber])
+  @@index([createdById])
+  @@index([callDate])
+  @@map("calls")
+}
+
+model Client {
+  id            String        @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String?       @unique
+  phone         String        @unique
+  dateOfBirth   DateTime?
+  address       String?
+  city          String?
+  state         String?
+  country       String?
+  postalCode    String?
+  notes         String?
+  status        String        @default("active") // active, inactive, archived
+  assignedToId  String?       // Assigned counselor
+  assignedTo    User?         @relation("ClientAssigned", fields: [assignedToId], references: [id])
+  createdById   String?       // User who created the client
+  createdBy     User?         @relation("ClientCreator", fields: [createdById], references: [id])
+  applications  Application[]
+  visits        ClientVisit[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("clients")
+}
+
+model Application {
+  id              String      @id @default(cuid())
+  applicationId   String?     @unique // Custom application ID (e.g., APP-2024-001)
+  clientId        String      // Associated client
+  client          Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  visaType        String      // Student, Work, PR, Tourist, etc.
+  targetCountry   String      // Destination country
+  status          String      @default("draft") // draft, submitted, in_review, approved, rejected, withdrawn
+  priority        String      @default("normal") // low, normal, high, urgent
+  submissionDate  DateTime?
+  expiryDate      DateTime?
+  fees            Float?      // Application fees
+  notes           String?
+  documents       ApplicationDocument[]
+  assignedToId    String?     // Assigned counselor/officer
+  assignedTo      User?       @relation("ApplicationAssigned", fields: [assignedToId], references: [id])
+  createdById     String?     // User who created the application
+  createdBy       User?       @relation("ApplicationCreator", fields: [createdById], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("applications")
+}
+
+model ApplicationDocument {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  name          String      // Document name
+  type          String      // passport, visa, certificate, etc.
+  fileUrl       String?     // File storage URL
+  uploadedAt    DateTime    @default(now())
+  uploadedById  String?     // User who uploaded
+  uploadedBy    User?       @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  createdAt     DateTime    @default(now())
+
+  @@map("application_documents")
+}
+
+model ClientVisit {
+  id            String      @id @default(cuid())
+  clientId      String?     // Associated client (optional for walk-ins)
+  client        Client?     @relation(fields: [clientId], references: [id])
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String
+  visitDate     DateTime    @default(now())
+  inTime        DateTime    @default(now())
+  outTime       DateTime?
+  purpose       String      // consultation, follow-up, document-submission, etc.
+  assignedToId  String?     // Assigned counselor
+  assignedTo    User?       @relation("VisitAssigned", fields: [assignedToId], references: [id])
+  notes         String?
+  createdById   String?     // Receptionist who recorded the visit
+  createdBy     User?       @relation("VisitCreator", fields: [createdById], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("client_visits")
+}
+
+model Attendance {
+  id            String      @id @default(cuid())
+  userId        String      // Employee
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date          DateTime    @default(now()) // Date of attendance
+  checkIn       DateTime?   // Check-in time
+  checkOut      DateTime?   // Check-out time
+  status        String      @default("present") // present, absent, late, half_day, on_leave
+  workHours     Float?      // Total work hours
+  notes         String?     // Additional notes
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([userId, date])
+  @@map("attendance")
+}
+
+model LeaveRequest {
+  id            String      @id @default(cuid())
+  userId        String      // Employee requesting leave
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leaveType     String      // casual, sick, annual, emergency, unpaid
+  startDate     DateTime    // Leave start date
+  endDate       DateTime    // Leave end date
+  days          Int         // Number of days
+  reason        String      // Reason for leave
+  status        String      @default("pending") // pending, approved, rejected, cancelled
+  approvedById  String?     // HR/Manager who approved
+  approvedBy    User?       @relation("LeaveApprover", fields: [approvedById], references: [id])
+  approvedAt    DateTime?
+  rejectionReason String?   // Reason if rejected
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("leave_requests")
+}
+
+model PerformanceReview {
+  id            String      @id @default(cuid())
+  userId        String      // Employee being reviewed
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewPeriod  String      // e.g., "Q1 2024", "Annual 2024"
+  reviewDate    DateTime    @default(now())
+  reviewedById  String      // HR/Manager conducting review
+  reviewedBy    User        @relation("Reviewer", fields: [reviewedById], references: [id])
+  rating        Int         // 1-5 rating
+  goals         String?     // Goals achieved
+  achievements  String?     // Key achievements
+  areasForImprovement String? // Areas needing improvement
+  comments      String?     // Additional comments
+  nextReviewDate DateTime?  // Date for next review
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("performance_reviews")
+}
+
+model UserSession {
+  id            String      @id @default(cuid())
+  userId        String      // User who logged in
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shiftId       String?     // Assigned shift
+  shift         Shift?      @relation(fields: [shiftId], references: [id])
+  loginTime     DateTime    @default(now()) // When user logged in
+  logoutTime    DateTime?   // When user logged out
+  status        String      @default("available") // available, unavailable, on_break
+  totalWorkTime Int         @default(0) // Total work time in seconds (excluding breaks)
+  totalBreakTime Int        @default(0) // Total break time in seconds
+  currentBreakId String?    @unique // Currently active break (unique for one-to-one)
+  currentBreak   BreakRecord? @relation("CurrentBreak", fields: [currentBreakId], references: [id])
+  breaks         BreakRecord[] @relation("SessionBreaks")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("user_sessions")
+}
+
+model BreakRecord {
+  id            String      @id @default(cuid())
+  sessionId     String      // User session
+  session       UserSession @relation("SessionBreaks", fields: [sessionId], references: [id], onDelete: Cascade)
+  currentSession UserSession? @relation("CurrentBreak")
+  breakType     String      // break, meeting, bio_break, lunch, tea_break
+  reason        String?     // Optional reason/notes
+  startTime     DateTime    @default(now())
+  endTime       DateTime?
+  duration      Int?        // Duration in seconds
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("break_records")
+}
+
+model Shift {
+  id            String      @id @default(cuid())
+  name          String      // e.g., "Morning Shift", "Day Shift"
+  startTime     String      // e.g., "09:00" (24-hour format)
+  endTime       String      // e.g., "17:00" (24-hour format)
+  duration      Int         // Duration in hours (e.g., 8)
+  isActive      Boolean     @default(true)
+  roleShifts    RoleShift[] // Many-to-many with roles
+  sessions      UserSession[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("shifts")
+}
+
+model RoleShift {
+  id        String   @id @default(cuid())
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  shiftId   String
+  shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([roleId, shiftId])
+  @@map("role_shifts")
+}
+
+model Document {
+  id            String      @id @default(cuid())
+  documentType  String      // offer_letter, joining_letter, noc, warning_letter, experience_letter, etc.
+  title         String      // Document title
+  description   String?     // Optional description
+  fileName      String      // Original file name
+  fileUrl       String      // File storage URL/path
+  fileSize      Int?        // File size in bytes
+  mimeType      String?     // File MIME type
+  recipientId   String?     // User who received this document
+  recipient     User?       @relation("DocumentRecipient", fields: [recipientId], references: [id])
+  createdById   String      // HR/Admin who created the document
+  createdBy     User        @relation("DocumentCreator", fields: [createdById], references: [id])
+  status        String      @default("draft") // draft, sent, acknowledged, archived
+  issuedDate    DateTime?   // When document was issued
+  expiryDate    DateTime?   // If document has expiry (e.g., NOC)
+  tags          String?     // Comma-separated tags for filtering
+  metadata      String?     // JSON string for additional metadata
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("documents")
+}
+
+model GoogleToken {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken   String   // Encrypted access token
+  refreshToken  String?  // Encrypted refresh token
+  tokenType     String?  @default("Bearer")
+  expiryDate    DateTime? // Token expiry date
+  scope         String?  // Granted scopes
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("google_tokens")
+}
+
+model StaffDuties {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  keyResponsibilities String   // JSON array of key responsibilities
+  coreDuties          String   // JSON array of core duties
+  additionalDuties    String?  // JSON array of additional duties (optional)
+  notes               String?  // Additional notes or instructions
+  createdById         String   // Admin/HR who created/updated this
+  createdBy           User     @relation("DutiesCreator", fields: [createdById], references: [id])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("staff_duties")
+}
+
+model TagFlow {
+  id            String   @id @default(cuid())
+  name          String   // Display name (e.g., "Interested", "Not Interested")
+  description   String?  // Optional description
+  tagValue      String   // The actual tag value used in code (e.g., "interested", "not_interested")
+  icon          String   @default("Tag") // Icon name from lucide-react
+  color         String   @default("#3B82F6") // Color hex code
+  category      String   @default("call_status") // call_status, lead_status, priority, custom
+  isActive      Boolean  @default(true) // Whether this tag is active
+  isExclusive   Boolean  @default(false) // If true, applying this tag removes other tags
+  requiresNote  Boolean  @default(false) // Whether note is mandatory
+  requiresCallback Boolean @default(false) // Whether callback date/time is mandatory
+  requiresFollowUp Boolean @default(false) // Whether follow-up date/time is mandatory
+  actions       String?  // JSON string for tag actions (optional for now)
+  escalations   String?  // JSON string for escalation rules (optional for now)
+  createdById   String?  // User who created this tag flow
+  createdBy     User?    @relation("TagFlowCreator", fields: [createdById], references: [id])
+  usageCount    Int      @default(0) // How many times this tag has been used
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tagValue, category])
+  @@map("tag_flows")
+}
+
+model LeadActivity {
+  id            String   @id @default(cuid())
+  leadId        String   // Associated lead
+  lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  activityType  String   // note, tag_applied, status_changed, moved, collaboration_started, collaboration_ended, callback_scheduled, document_uploaded, etc.
+  title         String   // Activity title (e.g., "Note added", "Tagged as Interested")
+  description   String?  // Activity description/details
+  metadata      String?  // JSON string for additional data (e.g., old value, new value, tag details)
+  createdById   String   // User who performed this activity
+  createdBy     User     @relation("ActivityCreator", fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("lead_activities")
+}
+
+model MobileDevice {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  deviceId      String    @unique
+  deviceName    String?
+  fcmToken      String?
+  phoneNumber   String?
+  
+  isOnline      Boolean   @default(false)
+  lastSeen      DateTime?
+  isActive      Boolean   @default(true)
+  
+  registeredAt  DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("mobile_devices")
+}
+
+model CallRequest {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  phoneNumber   String
+  leadId        String?
+  lead          Lead?     @relation(fields: [leadId], references: [id])
+  
+  status        String    @default("pending") // pending, sent, completed, failed, expired
+  deviceId      String?
+  
+  requestedAt   DateTime  @default(now())
+  sentAt        DateTime?
+  completedAt   DateTime?
+  expiresAt     DateTime
+  
+  callId        String?   @unique
+  call          Call?     @relation(fields: [callId], references: [id])
+  errorMessage  String?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@map("call_requests")
+}
+
+model Task {
+  id            String    @id @default(cuid())
+  title         String    // Task title
+  description   String?   // Optional task description
+  type          String    @default("FOLLOW_UP") // FOLLOW_UP, INTERNAL, CALL, MEETING
+  status        String    @default("PENDING") // PENDING, COMPLETED, CANCELLED
+  priority      String    @default("MEDIUM") // LOW, MEDIUM, HIGH
+  dueAt         DateTime  // Task due date/time
+  completedAt   DateTime? // When task was completed (nullable)
+  leadId        String?   // Associated lead (optional - for lead follow-ups)
+  lead          Lead?     @relation(fields: [leadId], references: [id])
+  assignedToId  String    // User assigned to this task
+  assignedTo    User      @relation("TaskAssigned", fields: [assignedToId], references: [id])
+  createdById   String    // User who created this task
+  createdBy     User      @relation("TaskCreator", fields: [createdById], references: [id])
+  activities    TaskActivity[] // Task activity/history records
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([dueAt])
+  @@index([assignedToId])
+  @@index([leadId])
+  @@map("tasks")
+}
+
+model TaskActivity {
+  id            String   @id @default(cuid())
+  taskId        String   // Associated task
+  task          Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  action        String   // CREATED, STATUS_CHANGED, REASSIGNED, COMPLETED, NOTE_ADDED, etc.
+  note          String?  // Optional note/description for this activity
+  createdById   String   // User who performed this activity
+  createdBy     User     @relation("TaskActivityCreator", fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@map("task_activities")
+}

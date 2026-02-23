@@ -1,0 +1,47 @@
+# Render Blueprint: TVF DX — Backend + Frontend
+# Deploy: Connect repo in Render Dashboard, then use "New > Blueprint" and point to this file.
+# Or create two Web Services manually (see docs/RENDER_DEPLOY.md).
+
+services:
+  # ---------- 1. Backend API (Express) ----------
+  - type: web
+    name: tvf-dx-api
+    runtime: node
+    region: singapore
+    plan: free
+
+    buildCommand: npm install
+    startCommand: npm run start:server
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+
+  # ---------- 2. Frontend (Next.js) ----------
+  - type: web
+    name: tvf-dx-web
+    runtime: node
+    region: singapore
+    plan: free
+
+    buildCommand: npm run build
+    startCommand: npm start
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Set NEXT_PUBLIC_API_URL to your backend URL after deploy, e.g. https://tvf-dx-api.onrender.com
+      - key: NEXT_PUBLIC_API_URL
+        sync: false

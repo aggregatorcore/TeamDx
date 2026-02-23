@@ -1,0 +1,89 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: tvf-postgres-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: immigration_db
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tvf-network
+    restart: unless-stopped
+
+  # Backend API Server (hot reload — server, packages, prisma mounted)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend.dev
+    container_name: tvf-backend-dev
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/immigration_db?schema=public
+      - JWT_SECRET=${JWT_SECRET:-immigration-office-secret-key-2024}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - PORT=5000
+      - NEXT_PUBLIC_API_URL=http://localhost:5000
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server:/app/server
+      - ./packages:/app/packages
+      - ./prisma:/app/prisma
+      - /app/node_modules/.cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - tvf-network
+    command: npm run server
+    restart: unless-stopped
+
+  # Frontend Next.js (hot reload — app, components, lib, etc. mounted; E: in Docker File sharing)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend.dev
+    container_name: tvf-frontend-dev
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:5000
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./app:/app/app
+      - ./components:/app/components
+      - ./lib:/app/lib
+      - ./public:/app/public
+      - ./server:/app/server
+      - ./packages:/app/packages
+      - ./prisma:/app/prisma
+      - /app/.next
+      - /app/node_modules/.cache
+    depends_on:
+      - backend
+    networks:
+      - tvf-network
+    command: npm run dev
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+    # Data stored in Docker's volume system (F drive WSL location)
+    # To check location: docker volume inspect tvf-dx_postgres_data
+
+networks:
+  tvf-network:
+    driver: bridge

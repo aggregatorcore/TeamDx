@@ -1,0 +1,68 @@
+{
+  "docker": {
+    "installed": true,
+    "version": "Docker version 29.1.3, build f52814d",
+    "daemonRunning": true,
+    "containers": [
+      "tvf-backend\tUp 8 minutes (healthy)\t0.0.0.0:5000->5000/tcp, [::]:5000->5000/tcp",
+      "tvf-frontend\tUp 8 minutes\t0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp",
+      "tvf-postgres\tUp 8 minutes (healthy)\t0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp"
+    ],
+    "backendContainer": true,
+    "postgresContainer": true,
+    "frontendContainer": true,
+    "composeFileExists": true,
+    "composeServices": "NAME           IMAGE                COMMAND                  SERVICE    CREATED        STATUS                   PORTS\ntvf-backend    tvf_dx-backend       \"docker-entrypoint.s…\"   backend    26 hours ago   Up 8 minutes (healthy)   0.0.0.0:5000->5000/tcp, [::]:5000->5000/tcp\ntvf-frontend   tvf_dx-frontend      \"docker-entrypoint.s…\"   frontend   26 hours ago   Up 8 minutes             0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp\ntvf-postgres   postgres:15-alpine   \"docker-entrypoint.s…\"   postgres   26 hours ago   Up 8 minutes (healthy)   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp"
+  },
+  "backend": {
+    "running": true,
+    "status": "ok",
+    "message": "Server is running",
+    "httpStatus": 200,
+    "healthy": false
+  },
+  "database": {
+    "connected": true,
+    "querySuccess": true,
+    "tablesAccessible": false
+  },
+  "api": {
+    "endpoints": [
+      {
+        "path": "/health",
+        "method": "GET",
+        "status": 200,
+        "accessible": true
+      },
+      {
+        "path": "/api/auth/login",
+        "method": "POST",
+        "status": 401,
+        "accessible": true
+      }
+    ]
+  },
+  "summary": {
+    "docker": {
+      "installed": true,
+      "daemonRunning": true,
+      "containersRunning": {
+        "backend": true,
+        "postgres": true,
+        "frontend": true
+      }
+    },
+    "backend": {
+      "running": true,
+      "healthy": false,
+      "databaseReady": false
+    },
+    "database": {
+      "connected": true,
+      "querySuccess": true
+    },
+    "overall": {
+      "status": "degraded"
+    }
+  }
+}

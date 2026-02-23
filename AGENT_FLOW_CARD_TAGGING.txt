@@ -1,0 +1,86 @@
+═══════════════════════════════════════════════════════════════
+  AGENT FLOW CARD - TAG SELECTION
+═══════════════════════════════════════════════════════════════
+
+STEP 1: CALL END HONE KE BAAD
+
+  ┌─────────────────────────────────────┐
+  │   Call Connect Hua?                 │
+  └─────────────────────────────────────┘
+              │
+              │
+    ┌─────────┴─────────┐
+    │                   │
+    YES                 NO
+    │                   │
+    │                   │
+    ▼                   ▼
+
+STEP 2A: CONNECTED              STEP 2B: NOT_CONNECTED
+    │                           │
+    │                           │
+    ▼                           ▼
+    
+  ┌─────────────────────┐    ┌─────────────────────┐
+  │  CONNECTED          │    │  NOT_CONNECTED      │
+  │  (Parent Tag)       │    │  (Parent Tag)        │
+  └─────────────────────┘    └─────────────────────┘
+    │                           │
+    │                           │
+    ▼                           ▼
+
+STEP 3A: CHILD REASON          STEP 3B: CHILD REASON
+    │                           │
+    │                           │
+    ▼                           ▼
+
+  ┌─────────────────────┐    ┌─────────────────────┐
+  │  Select Reason:     │    │  Select Reason:     │
+  │                     │    │                     │
+  │  • Interested       │    │  • No Answer        │
+  │  • Discussion       │    │  • Busy             │
+  │  • Decision Pending │    │  • Switch Off       │
+  │  • Budget Issue     │    │  • Invalid Number   │
+  │  • Eligibility      │    │  • Rejected         │
+  │  • Need Senior      │    │  • Incoming Off     │
+  │  • Not Interested   │    │                     │
+  └─────────────────────┘    └─────────────────────┘
+    │                           │
+    │                           │
+    ▼                           ▼
+
+STEP 4: FILL REQUIRED FIELDS (If Needed)
+    │
+    │
+    ▼
+
+  ┌─────────────────────┐
+  │  Note (if required) │
+  │  Callback (if req)  │
+  └─────────────────────┘
+    │
+    │
+    ▼
+
+STEP 5: SAVE
+    │
+    │
+    ▼
+
+  ┌─────────────────────┐
+  │  Tag Applied! ✅    │
+  │  System will auto   │
+  │  follow-up          │
+  └─────────────────────┘
+
+═══════════════════════════════════════════════════════════════
+
+QUICK RULES:
+────────────
+
+1. Pehle PARENT select karo (CONNECTED ya NOT_CONNECTED)
+2. Phir CHILD reason select karo
+3. Required fields fill karo (Note/Callback)
+4. Save karo
+
+═══════════════════════════════════════════════════════════════

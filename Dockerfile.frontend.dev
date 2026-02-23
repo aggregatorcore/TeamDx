@@ -1,0 +1,42 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies needed for native modules
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    giflib-dev \
+    pixman-dev
+
+# Copy package files
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Install dependencies (ignore-scripts so canvas does not build yet)
+RUN npm ci --ignore-scripts
+
+# Fix canvas build on Alpine/Node 20: add missing #include <cstdint> (uint8_t etc.)
+RUN sed -i '1i #include <cstdint>' node_modules/canvas/src/CharData.h && \
+    sed -i '1i #include <cstdint>' node_modules/canvas/src/FontParser.h && \
+    sed -i '1i #include <cstdint>' node_modules/canvas/src/FontParser.cc
+
+# Rebuild canvas native module
+RUN npm rebuild canvas
+
+# Copy source code (will be overridden by volume mount in dev)
+COPY . .
+
+# Generate Prisma Client (dummy DATABASE_URL for build; real URL at runtime)
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/immigration_db?schema=public"
+RUN npx prisma generate
+
+# Expose port
+EXPOSE 3000
+
+# Default command (will be overridden by docker-compose)
+CMD ["npm", "run", "dev"]

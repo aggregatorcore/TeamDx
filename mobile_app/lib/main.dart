@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_tab_screen.dart';
 import 'utils/storage.dart';
+import 'utils/constants.dart';
 import 'utils/app_config.dart';
 
 void main() async {
@@ -29,7 +29,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'TVF DX Mobile',
+      title: 'TeamDX',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
@@ -45,11 +45,11 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final token = Storage.getString('auth_token');
+    final token = Storage.getString(StorageKeys.token);
     final hasToken = token != null && token.isNotEmpty;
 
     if (hasToken) {
-      return const HomeScreen();
+      return const MainTabScreen();
     } else {
       return const LoginScreen();
     }

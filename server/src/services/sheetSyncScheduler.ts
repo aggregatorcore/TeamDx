@@ -5,13 +5,27 @@ import { syncGoogleSheet } from "../utils/sheetSyncHelper";
  * Background service to periodically sync connected Google Sheets
  * This should be called every minute to check for sheets that need syncing
  */
+function isDbUnreachable(err: any): boolean {
+  const msg = err?.message ?? "";
+  return err?.code === "ECONNREFUSED" || msg.includes("connect") || msg.includes("timed out") || msg.includes("timeout");
+}
+
 export async function runSheetSyncScheduler() {
   try {
-    const activeSyncs = await prisma.googleSheetSync.findMany({
-      where: {
-        isActive: true,
-      },
-    });
+    let activeSyncs: Awaited<ReturnType<typeof prisma.googleSheetSync.findMany>>;
+    try {
+      activeSyncs = await prisma.googleSheetSync.findMany({
+        where: {
+          isActive: true,
+        },
+      });
+    } catch (dbErr: any) {
+      if (isDbUnreachable(dbErr)) {
+        console.warn("[sheetSync] DB not reachable (check DATABASE_URL). Skipping.");
+        return;
+      }
+      throw dbErr;
+    }
 
     const now = new Date();
 
@@ -42,8 +56,8 @@ export async function runSheetSyncScheduler() {
         }
       }
     }
-  } catch (error) {
-    console.error("Sheet sync scheduler error:", error);
+  } catch (error: any) {
+    if (!isDbUnreachable(error)) console.error("Sheet sync scheduler error:", error?.message ?? error);
   }
 }
 

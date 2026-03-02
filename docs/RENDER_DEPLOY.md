@@ -1,10 +1,65 @@
 # Render pe deploy karna (TVF DX)
 
-Do services: **Backend API** (Express) aur **Frontend** (Next.js).
+Do services: **Backend API** (Express) aur **Frontend** (Next.js). DB = **Supabase** (pehle se setup).
 
 ---
 
-## Option 1: Blueprint se (ek baar me dono)
+## Step-by-step (Blueprint — sabse simple)
+
+### 1. GitHub pe code push
+
+- Repo: `aggregatorcore/TeamDx` (ya jo use karte ho) — code push karke latest ensure karo.
+
+### 2. Render Dashboard
+
+1. [dashboard.render.com](https://dashboard.render.com) → login.
+2. **New +** → **Blueprint**.
+3. GitHub repo connect karo (agar pehle se nahi) → repo select karo → **Connect**.
+4. Branch: `main`, Blueprint file: `render.yaml` (auto detect).
+5. **Apply** → Render **tvf-dx-api** aur **tvf-dx-web** dono services bana dega.
+
+### 3. Backend (tvf-dx-api) — Environment Variables
+
+Service **tvf-dx-api** → **Environment** → ye add/update karo:
+
+| Key | Value |
+|-----|--------|
+| `NODE_ENV` | `production` |
+| `JWT_SECRET` | koi strong random string (e.g. 32+ chars) |
+| `JWT_EXPIRES_IN` | `7d` |
+| `SUPABASE_URL` | `https://itmvgyerueofawyvwkrn.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → **service_role** (secret) |
+| `DATABASE_URL` | Supabase → Database → **Session** (port 5432) connection string. Password me `@`/`#` ho to URL-encode: `@`→`%40`, `#`→`%23` |
+| `FRONTEND_URL` | Pehle `https://tvf-dx-web.onrender.com` daal do (frontend deploy ke baad confirm karo) |
+
+Save → **Manual Deploy** (ya auto deploy wait karo).
+
+### 4. Frontend (tvf-dx-web) — Environment Variables
+
+Service **tvf-dx-web** → **Environment** → ye add karo:
+
+| Key | Value |
+|-----|--------|
+| `NODE_ENV` | `production` |
+| `NEXT_PUBLIC_API_URL` | Backend ka URL, e.g. `https://tvf-dx-api.onrender.com` |
+
+Save → **Manual Deploy**.
+
+### 5. URLs fix karo
+
+- Backend URL note karo: `https://tvf-dx-api.onrender.com`.
+- Frontend URL note karo: `https://tvf-dx-web.onrender.com`.
+- **tvf-dx-api** me `FRONTEND_URL` = `https://tvf-dx-web.onrender.com` (exact) set karo → Save → Redeploy.
+- **tvf-dx-web** me `NEXT_PUBLIC_API_URL` = `https://tvf-dx-api.onrender.com` set karo → Save → Redeploy.
+
+### 6. Test
+
+- Admin panel: `https://tvf-dx-web.onrender.com` (login: admin@example.com / apna password).
+- Mobile app me production API: `NEXT_PUBLIC_API_URL` / backend URL use karo (app config me ya build-time).
+
+---
+
+## Option 1: Blueprint se (detail)
 
 1. **GitHub pe code push karo** (repo public ya Render se connected).
 2. [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**.

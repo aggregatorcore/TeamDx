@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma";
-import { calculateShiftAwareCallback, getDefaultTelecallerShift } from "../../utils/shiftUtils";
+import { calculateShiftAwareCallback, getDefaultTelecallerShift } from "../../../utils/shiftUtils";
 
 /**
  * Background job to automatically fix missing callbacks for "No Answer" tags
@@ -9,11 +9,20 @@ export async function fixMissingCallbacks() {
   try {
     console.log(`[FIX MISSING CALLBACKS JOB] 🔄 Starting job at ${new Date().toISOString()}`);
 
-    // Get active workflow
-    const activeWorkflow = await prisma.workflow.findFirst({
-      where: { isActive: true },
-      orderBy: { updatedAt: "desc" },
-    });
+    let activeWorkflow: Awaited<ReturnType<typeof prisma.workflow.findFirst>>;
+    try {
+      activeWorkflow = await prisma.workflow.findFirst({
+        where: { isActive: true },
+        orderBy: { updatedAt: "desc" },
+      });
+    } catch (dbErr: any) {
+      const msg = dbErr?.message ?? "";
+      if (dbErr?.code === "ECONNREFUSED" || msg.includes("connect") || msg.includes("timed out") || msg.includes("timeout")) {
+        console.warn("[FIX MISSING CALLBACKS JOB] DB not reachable or timed out. Skipping.");
+        return;
+      }
+      throw dbErr;
+    }
 
     if (!activeWorkflow) {
       console.log(`[FIX MISSING CALLBACKS JOB] ⚠️ No active workflow found`);

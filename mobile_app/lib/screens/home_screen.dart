@@ -390,7 +390,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TVF DX Mobile'),
+        title: const Text('TeamDX'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),

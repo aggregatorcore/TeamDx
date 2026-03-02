@@ -1,3 +1,4 @@
+import { Pool } from "pg";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -5,18 +6,30 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-const connectionString = process.env.DATABASE_URL;
+let connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
   throw new Error("DATABASE_URL environment variable is not set");
 }
 
-// Prisma 7 adapter expects { connectionString } (and optional ssl), not a Pool instance
 const isSupabase = connectionString.includes("supabase");
-const adapter = new PrismaPg({
+if (isSupabase) {
+  const sep = connectionString.includes("?") ? "&" : "?";
+  if (!connectionString.includes("connect_timeout=")) {
+    connectionString = `${connectionString}${sep}connect_timeout=60`;
+  }
+}
+
+// Explicit Pool: full control over timeouts; small max to avoid Supabase connection limit
+const pool = new Pool({
   connectionString,
+  max: 3,
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 60_000,
   ...(isSupabase && { ssl: { rejectUnauthorized: false } }),
 });
+
+const adapter = new PrismaPg(pool);
 
 export const prisma =
   globalForPrisma.prisma ??

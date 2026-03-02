@@ -272,5 +272,50 @@ class ApiService {
 
     return await _handleResponse(response);
   }
-}
 
+  // Get my leads (assigned to current user)
+  Future<List<dynamic>> getLeads({int page = 1, int limit = 50}) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/leads?page=$page&limit=$limit'),
+      headers: await _getHeaders(),
+    ).timeout(const Duration(seconds: 30));
+    final data = await _handleResponse(response);
+    if (data['leads'] is List) return data['leads'] as List<dynamic>;
+    return [];
+  }
+
+  // Get single lead by id
+  Future<Map<String, dynamic>> getLead(String id) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/leads/$id'),
+      headers: await _getHeaders(),
+    ).timeout(const Duration(seconds: 30));
+    return await _handleResponse(response);
+  }
+
+  // Get my tasks
+  Future<List<dynamic>> getTasks() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/tasks'),
+      headers: await _getHeaders(),
+    ).timeout(const Duration(seconds: 30));
+    final data = await _handleResponse(response);
+    if (data['tasks'] is List) return data['tasks'] as List<dynamic>;
+    return [];
+  }
+
+  // Get current user (auth/me)
+  Future<Map<String, dynamic>> getMe() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/auth/me'),
+      headers: await _getHeaders(),
+    ).timeout(const Duration(seconds: 15));
+    return await _handleResponse(response);
+  }
+
+  // Logout (clear token; server may have logout endpoint too)
+  Future<void> logout() async {
+    await Storage.remove(StorageKeys.token);
+    await Storage.remove(StorageKeys.user);
+  }
+}

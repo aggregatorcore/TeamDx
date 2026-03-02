@@ -108,6 +108,15 @@ async function checkDueSoonTasks() {
         dueAt: true,
         assignedToId: true,
       },
+    }).catch((err: any) => {
+      const code = err?.code ?? err?.meta?.code;
+      const msg = err?.message ?? "";
+      const isUnreachable = code === "ECONNREFUSED" || msg.includes("connect") || msg.includes("timed out") || msg.includes("timeout");
+      if (isUnreachable) {
+        console.warn("[scheduler] DB unreachable or timed out. Skipping due-soon check.");
+        return [];
+      }
+      throw err;
     });
 
     if (tasks.length === 0) {
@@ -165,6 +174,15 @@ async function checkOverdueTasks() {
         assignedToId: true,
         status: true,
       },
+    }).catch((err: any) => {
+      const code = err?.code ?? err?.meta?.code;
+      const msg = err?.message ?? "";
+      const isUnreachable = code === "ECONNREFUSED" || msg.includes("connect") || msg.includes("timed out") || msg.includes("timeout");
+      if (isUnreachable) {
+        console.warn("[scheduler] DB unreachable or timed out. Skipping overdue check.");
+        return [];
+      }
+      throw err;
     });
 
     if (tasks.length === 0) {
@@ -197,7 +215,9 @@ async function checkOverdueTasks() {
       }
     }
   } catch (error: any) {
-    console.error("[scheduler] Error checking overdue tasks:", error.message);
+    const msg = error?.message ?? String(error);
+    const code = error?.code ?? error?.meta?.code;
+    console.error("[scheduler] Error checking overdue tasks:", msg, code ? `(code: ${code})` : "");
   }
 }
 

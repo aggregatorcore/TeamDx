@@ -182,7 +182,12 @@ export async function getPendingRetryActions(limit: number = 50): Promise<any[]>
 
     return pendingActions;
   } catch (error: any) {
-    console.error('[RETRY SCHEDULER] Error getting pending retry actions:', error);
+    const msg = error?.message ?? "";
+    if (error?.code === "ECONNREFUSED" || msg.includes("connect") || msg.includes("timed out") || msg.includes("timeout")) {
+      console.warn("[RETRY SCHEDULER] DB not reachable or timed out. Skipping.");
+      return [];
+    }
+    console.error("[RETRY SCHEDULER] Error getting pending retry actions:", error?.message ?? error);
     throw error;
   }
 }

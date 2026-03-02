@@ -40,7 +40,7 @@ interface ActionExecutionResult {
 export async function pollDueInstances(limit: number = 50): Promise<any[]> {
   try {
     const now = new Date();
-    
+
     const instances = await prisma.tagActionInstance.findMany({
       where: {
         status: "pending",
@@ -49,18 +49,23 @@ export async function pollDueInstances(limit: number = 50): Promise<any[]> {
         },
       },
       include: {
-        tagApplication: true, // TagApplication has no lead/call relations; we attach entity in executeInstance
+        tagApplication: true,
         tagFlow: true,
       },
       take: limit,
       orderBy: {
-        nextRunAt: "asc", // Process oldest first
+        nextRunAt: "asc",
       },
     });
 
     return instances;
   } catch (error: any) {
-    console.error("[TagActionRunner] Error polling due instances:", error);
+    const msg = error?.message ?? "";
+    if (error?.code === "ECONNREFUSED" || msg.includes("connect") || msg.includes("timed out") || msg.includes("timeout")) {
+      console.warn("[TagActionRunner] DB not reachable or timed out. Skipping poll.");
+      return [];
+    }
+    console.error("[TagActionRunner] Error polling due instances:", error?.message ?? error);
     throw error;
   }
 }

@@ -6,8 +6,9 @@ import '../services/api_service.dart';
 import '../services/device_service.dart';
 import '../services/websocket_service.dart';
 import '../utils/storage.dart';
+import '../utils/constants.dart';
 import '../models/device_info.dart';
-import 'home_screen.dart';
+import 'main_tab_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -52,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Navigate to home screen immediately (don't wait for device registration)
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const MainTabScreen()),
         );
       }
 
@@ -76,11 +77,10 @@ class _LoginScreenState extends State<LoginScreen> {
             // For other errors, just log and navigate anyway
             print('Error during login process: $errorMsg');
             // Check if token exists (login was successful)
-            final token = Storage.getString('auth_token');
+            final token = Storage.getString(StorageKeys.token);
             if (token != null) {
-              // Login was successful, navigate anyway
               Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const HomeScreen()),
+                MaterialPageRoute(builder: (_) => const MainTabScreen()),
               );
               return;
             }
@@ -137,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TVF DX Login'),
+        title: const Text('TeamDX'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -146,10 +146,15 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.phone_android,
-                size: 80,
-                color: Colors.blue,
+              Image.asset(
+                'assets/images/TeamDx_Logo.png',
+                height: 100,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.phone_android,
+                  size: 80,
+                  color: Colors.blue,
+                ),
               ),
               const SizedBox(height: 32),
               TextFormField(

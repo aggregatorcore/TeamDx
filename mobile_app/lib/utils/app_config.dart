@@ -1,11 +1,7 @@
 /// App Configuration - Environment-based settings
-/// 
-/// HARDCODED: Always uses http://localhost:5000 for physical device builds
-/// ADB reverse required: adb reverse tcp:5000 tcp:5000
-/// 
-/// Supports:
-/// - Physical Device (USB): http://localhost:5000 (hardcoded)
-/// - Development/Production environments
+///
+/// - Production: Set [apiBaseUrlOverride] (e.g. Render backend) or build with --dart-define=API_BASE_URL=https://...
+/// - Development: Uses localhost:5000 (ADB reverse: adb reverse tcp:5000 tcp:5000)
 
 enum AppEnvironment {
   development,
@@ -13,60 +9,47 @@ enum AppEnvironment {
 }
 
 enum DeviceType {
-  emulator, // Android Emulator
-  physical, // Physical Device
+  emulator,
+  physical,
 }
 
 class AppConfig {
-  // Environment
   static const AppEnvironment environment = AppEnvironment.development;
-  
-  // Device Type - Change this based on where you're running the app
-  // Set to DeviceType.emulator for Android Emulator
-  // Set to DeviceType.physical for Physical Device
   static const DeviceType deviceType = DeviceType.emulator;
-  
-  // Docker Backend Configuration
-  // For Android Emulator: 10.0.2.2 maps to host machine's localhost
-  // For Physical Device: Use your computer's IP address (e.g., 192.168.x.x)
-  static const String dockerHostIp = '192.168.29.158'; // Change this to your Docker host IP
+  static const String dockerHostIp = '192.168.29.158';
   static const int backendPort = 5000;
-  
-  // API Base URL
-  // Returns properly formatted URL: http://host:port (no trailing slash)
-  // HARDCODED: Force localhost for physical device builds (ADB reverse required)
-  // Use: adb reverse tcp:5000 tcp:5000
+
+  /// Override for production: set to your backend URL (e.g. https://tvf-dx-api.onrender.com)
+  static const String? apiBaseUrlOverride = null; // Set for release build or use --dart-define=API_BASE_URL=...
+
+  /// Android emulator: use 10.0.2.2 to reach host machine's localhost.
+  static const String _emulatorHost = '10.0.2.2';
+
   static String get apiBaseUrl {
-    // HARDCODE: Always use localhost for physical device builds
-    // ADB reverse must be set up: adb reverse tcp:5000 tcp:5000
-    String url = 'http://localhost:$backendPort';
-    // Ensure URL is properly formatted (no trailing slash, correct protocol)
+    const urlFromDefine = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+    if (urlFromDefine.isNotEmpty) {
+      return _normalizeUrl(urlFromDefine);
+    }
+    if (apiBaseUrlOverride != null && apiBaseUrlOverride!.isNotEmpty) {
+      return _normalizeUrl(apiBaseUrlOverride!);
+    }
+    // Emulator: 10.0.2.2 = host PC. Physical device: use PC's LAN IP (same WiFi).
+    String host = deviceType == DeviceType.emulator ? _emulatorHost : dockerHostIp;
+    String url = 'http://$host:$backendPort';
+    return _normalizeUrl(url);
+  }
+
+  static String _normalizeUrl(String url) {
     url = url.trim();
-    
-    // CRITICAL: Force http:// protocol (never https://)
-    if (url.startsWith('https://')) {
-      url = url.replaceFirst('https://', 'http://');
-      print('⚠️ [AppConfig] WARNING: URL had https://, changed to http://');
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://$url';
     }
-    if (!url.startsWith('http://')) {
-      url = 'http://$url';
-    }
-    
-    // Validate URL format - throw error if malformed
     if (url.contains('https//') || url.contains('http//')) {
-      throw Exception('CRITICAL: Malformed URL detected: $url (missing colon in protocol)');
+      throw Exception('Malformed URL: $url');
     }
-    
-    // Remove trailing slash if present
     if (url.endsWith('/')) {
       url = url.substring(0, url.length - 1);
     }
-    
-    // Final validation
-    if (!url.startsWith('http://')) {
-      throw Exception('CRITICAL: Invalid URL format: $url (must start with http://)');
-    }
-    
     return url;
   }
   

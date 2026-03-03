@@ -8,6 +8,7 @@ if (missing.length > 0) {
   console.error("[STARTUP] Missing required env:", missing.join(", "));
   process.exit(1);
 }
+console.log("[STARTUP] Env OK, loading app...");
 
 // Register TypeScript path mappings for tsx
 import { register } from "tsconfig-paths";
@@ -30,6 +31,7 @@ let documentRoutes, googleDocsRoutes, tagFlowRoutes, tagApplicationRoutes, workf
 let initializeSocket, startSheetSyncScheduler, startDxScheduler, stopDxScheduler, getIO;
 
 try {
+  console.log("[STARTUP] Loading routes...");
   authRoutes = require("./routes/auth").default;
   roleRoutes = require("./routes/roles").default;
   userRoutes = require("./routes/users").default;
@@ -56,6 +58,7 @@ try {
   console.error("Failed to import routes:", error);
   process.exit(1);
 }
+console.log("[STARTUP] Routes loaded");
 
 try {
   const socketModule = require("./lib/socket");

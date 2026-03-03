@@ -1,6 +1,14 @@
 // Load environment variables first
 import "dotenv/config";
 
+// Fail fast with clear message if required env are missing (e.g. on Render)
+const requiredEnv = ["DATABASE_URL", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "JWT_SECRET"];
+const missing = requiredEnv.filter((k) => !process.env[k]);
+if (missing.length > 0) {
+  console.error("[STARTUP] Missing required env:", missing.join(", "));
+  process.exit(1);
+}
+
 // Register TypeScript path mappings for tsx
 import { register } from "tsconfig-paths";
 import { resolve } from "path";

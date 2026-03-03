@@ -1,3 +1,6 @@
+// Force IPv4 for DB host (Render has no IPv6; Supabase can resolve to IPv6 → ENETUNREACH)
+require("dns").setDefaultResultOrder("ipv4first");
+
 import { Pool } from "pg";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";

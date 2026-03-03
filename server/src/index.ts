@@ -1,3 +1,6 @@
+// Prefer IPv4 for DB connections (Render has no IPv6; Supabase host may resolve to IPv6 → ENETUNREACH)
+require("dns").setDefaultResultOrder("ipv4first");
+
 // Load environment variables first
 import "dotenv/config";
 
